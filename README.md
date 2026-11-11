@@ -19,8 +19,22 @@ La compilation écrit `dist/`. Le proxy fonctionne aussi en preview. Docker util
 ## Code source
 
 - `src/main.jsx` : point d’entrée React, montage de `App` dans `#app` avec StrictMode.
-- `src/App.jsx` : interface et vérification de `/api/health` avec les hooks React ; annulation des requêtes au démontage.
+- `src/App.jsx` : assemblage du layout commun et de la page d’accueil.
+- `src/components/layout/` : `Layout`, `Header` et `Footer` communs ; navigation par vues avec ancres, lien d’évitement et pied de page.
+- `src/components/ui/Button.jsx` : bouton ou lien partagé avec variantes `primary` et `secondary`. Le bouton utilise `type="button"` par défaut ; préciser `type="submit"` pour un futur formulaire.
+- `src/components/ApiStatus.jsx` : vérification de `/api/health` ; annulation des requêtes au démontage.
+- `src/pages/HomePage.jsx` : accueil conforme à la page 1 des maquettes (bandeau et trois cartes).
 - `src/style.css` : Tailwind et styles globaux.
 - `vite.config.js` : plugins React et Tailwind, proxy API pour le développement et la preview.
 
 Modifier les fichiers de `src/` ; `dist/` est généré par la compilation.
+
+## Référence visuelle et navigation
+
+Le thème commun suit `Documentation/Maquettes_CardioScope.pdf` et `Guide_Frontend_CardioScope.pdf` dans le dossier parent : accent bordeaux #AE2449, fond rose #FCEEF2, texte #171F32, bordures #E3E7EE. Les couleurs Tailwind sont centralisées dans `src/style.css`.
+
+Les vues `#accueil`, `#simulation` et `#performances` partagent le layout ; la navigation indique la vue active avec `aria-current="page"`. L’accueil reprend les textes, le bandeau illustré et les cartes de la maquette. Simulation et Performances sont des vues d’attente : formulaire, résultats et tableau de métriques seront réalisés dans leurs tâches respectives. Aucun résultat de prédiction ni score ML fictif n’est présenté.
+
+## Modèle présenté
+
+Le frontend présente uniquement Random Forest (forêt aléatoire). La page Données et performances décrit la cible binaire et distingue la validation croisée sur l’entraînement de l’évaluation finale sur le test réservé. Les métriques restent en attente des résultats validés par l’équipe ML. Ce choix adapte les textes des maquettes sans changer leur thème ni la navigation.
