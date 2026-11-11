@@ -33,8 +33,18 @@ Modifier les fichiers de `src/` ; `dist/` est généré par la compilation.
 
 Le thème commun suit `Documentation/Maquettes_CardioScope.pdf` et `Guide_Frontend_CardioScope.pdf` dans le dossier parent : accent bordeaux #AE2449, fond rose #FCEEF2, texte #171F32, bordures #E3E7EE. Les couleurs Tailwind sont centralisées dans `src/style.css`.
 
-Les vues `#accueil`, `#simulation` et `#performances` partagent le layout ; la navigation indique la vue active avec `aria-current="page"`. L’accueil reprend les textes, le bandeau illustré et les cartes de la maquette. Simulation et Performances sont des vues d’attente : formulaire, résultats et tableau de métriques seront réalisés dans leurs tâches respectives. Aucun résultat de prédiction ni score ML fictif n’est présenté.
+Les vues `#accueil`, `#simulation` et `#performances` partagent le layout ; la navigation indique la vue active avec `aria-current="page"`. L’accueil reprend les textes, le bandeau illustré et les cartes de la maquette. Simulation présente le formulaire provisoire ; Performances reste une vue d’attente. Les résultats et le tableau de métriques seront réalisés dans leurs tâches respectives. Aucun résultat de prédiction ni score ML fictif n’est présenté.
 
 ## Modèle présenté
 
 Le frontend présente uniquement Random Forest (forêt aléatoire). La page Données et performances décrit la cible binaire et distingue la validation croisée sur l’entraînement de l’évaluation finale sur le test réservé. Les métriques restent en attente des résultats validés par l’équipe ML. Ce choix adapte les textes des maquettes sans changer leur thème ni la navigation.
+
+## Formulaire de simulation (tâche 05)
+
+`src/pages/SimulationPage.jsx` reprend les trois groupes et les 13 champs de la page 2 des maquettes. Les champs réutilisent `src/components/ui/FormField.jsx` ; les libellés, unités et codes Cleveland provisoires sont centralisés dans `src/data/simulationFields.js`.
+
+Les champs commencent vides. Les saisies sont conservées comme chaînes pour distinguer une valeur vide de zéro. Les listes ont une option vide « Sélectionner ». Aucune borne ni obligation de saisie définitive n'est imposée avant validation du contrat API. La fréquence cardiaque et l'âge utilisent un pas entier ; les autres mesures acceptent les décimales.
+
+Les boutons de chargement de profil et de prédiction restent désactivés avec une explication visible : profils fictifs, validation et intégration API appartiennent aux étapes suivantes. Le formulaire ne transmet aucune donnée et ne produit aucune prédiction. Le contrôle `/api/health` reste accessible dans « Disponibilité du service ».
+
+Vérification manuelle : ouvrir `/#simulation`, vérifier les 13 champs, saisir 0 dans une mesure, choisir « Non » et vérifier que ces valeurs restent affichées ; tester les libellés et le clavier ainsi que les mises en page à 375, 768 et 1280 px. Le formulaire utilise une, deux ou trois colonnes selon la largeur.
