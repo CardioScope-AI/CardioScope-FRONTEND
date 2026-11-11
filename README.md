@@ -43,9 +43,9 @@ Le frontend présente uniquement Random Forest (forêt aléatoire). La page Donn
 
 `src/pages/SimulationPage.jsx` reprend les trois groupes et les 13 champs de la page 2 des maquettes. Les champs réutilisent `src/components/ui/FormField.jsx` ; les libellés, unités et codes Cleveland provisoires sont centralisés dans `src/data/simulationFields.js`.
 
-Les champs commencent vides. Les saisies sont conservées comme chaînes pour distinguer une valeur vide de zéro. Les listes ont une option vide « Sélectionner ». Aucune borne ni obligation de saisie définitive n'est imposée avant validation du contrat API. La fréquence cardiaque et l'âge utilisent un pas entier ; les autres mesures acceptent les décimales.
+Les champs commencent vides. Les saisies sont conservées comme chaînes pour distinguer une valeur vide de zéro. Les listes ont une option vide « Sélectionner ». Les 13 champs sont désormais obligatoires selon le contrat de travail accepté ; les bornes métier restent à confirmer. La fréquence cardiaque et l'âge utilisent un pas entier ; les autres mesures acceptent les décimales.
 
-Les boutons de chargement de profil et de prédiction restent désactivés avec une explication visible : profils fictifs, validation et intégration API appartiennent aux étapes suivantes. Le formulaire ne transmet aucune donnée et ne produit aucune prédiction. Le contrôle `/api/health` reste accessible dans « Disponibilité du service ».
+Le bouton de chargement de profil reste désactivé en attendant la tâche dédiée. Le bouton de prédiction est connecté au client HTTP selon le contrat de travail décrit ci-dessous. Le contrôle `/api/health` reste accessible dans « Disponibilité du service ».
 
 Vérification manuelle : ouvrir `/#simulation`, vérifier les 13 champs, saisir 0 dans une mesure, choisir « Non » et vérifier que ces valeurs restent affichées ; tester les libellés et le clavier ainsi que les mises en page à 375, 768 et 1280 px. Le formulaire utilise une, deux ou trois colonnes selon la largeur.
 
@@ -55,6 +55,18 @@ Vérification manuelle : ouvrir `/#simulation`, vérifier les 13 champs, saisir 
 
 Dans `npm run dev`, ouvrir `/#simulation` puis « Développement : aperçu du résultat ». Les boutons des classes 0 et 1 affichent une réponse simulée avec une copie des saisies courantes. Les champs vides restent « Non renseigné » ; une valeur 0 est conservée. Cet aperçu est exclu du build de production et n’appelle aucune API. Ce n’est pas un jeu de profils de démonstration validés.
 
-« Nouvelle simulation » efface le résultat et les saisies, et replace le focus sur le formulaire. Le lien « Voir les performances » ouvre la vue correspondante. Le focus est placé sur le titre lors de l’apparition du résultat. La connexion à `/predict` reste à réaliser après validation du contrat.
+« Nouvelle simulation » efface le résultat et les saisies, et replace le focus sur le formulaire. Le lien « Voir les performances » ouvre la vue correspondante. Le focus est placé sur le titre lors de l’apparition du résultat. La connexion frontend à `/predict` est décrite ci-dessous ; la vérification avec le backend réel reste à effectuer.
 
 Contrôle manuel : essayer chaque classe en développement, vérifier l’absence de pourcentage, saisir âge/tension/cholestérol avant l’aperçu et vérifier le récapitulatif ; tester « Nouvelle simulation », le clavier et le rendu mobile.
+
+## Connexion FastAPI (tâche 09)
+
+Le brouillon est adopté comme contrat de travail : `POST /predict`, les 13 champs obligatoires et numériques avec les codes Cleveland, réponse `{ "prediction": 0 ou 1 }`. Le frontend appelle `/api/predict` via le proxy Vite. L'API réelle reste à implémenter et à vérifier côté backend.
+
+`src/data/validateSimulation.js` vérifie les champs vides avant conversion, les nombres finis, les codes de listes et les pas entiers pour âge/fréquence cardiaque. Aucune borne médicale supplémentaire n'est inventée. Les erreurs sont reliées aux champs et le premier champ invalide reçoit le focus.
+
+`src/api/prediction.js` gère la requête, les erreurs HTTP, les réponses mal formées, le délai de 15 secondes et l'annulation. Le formulaire bloque les doubles envois et les modifications pendant l'attente. Les saisies sont conservées en cas d'erreur ; le message reçoit le focus. Le résultat affiche une copie des valeurs numériques envoyées, sans mention de simulation pour une réponse API. « Nouvelle simulation » efface saisies et résultat. Quitter la vue annule la requête.
+
+Le chargement des profils fictifs reste à réaliser dans sa tâche dédiée. Les aperçus de résultat restent explicitement simulés et accessibles uniquement en développement.
+
+Vérification : `node --test tests/*.test.js`, puis `npm run build`. Les tests utilisent des réponses HTTP simulées et ne valident pas une prédiction réelle. Une API sans `/predict` renverra un message de service indisponible (404) ; un backend arrêté produira une erreur réseau ou proxy. Une vérification de bout en bout reste nécessaire dès que la route et le modèle entraîné sont disponibles.
