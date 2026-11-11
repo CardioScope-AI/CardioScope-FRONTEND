@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import SimulationResult from '../components/SimulationResult.jsx';
 import Button from '../components/ui/Button.jsx';
 import FormField from '../components/ui/FormField.jsx';
 import ApiStatus from '../components/ApiStatus.jsx';
@@ -10,16 +11,37 @@ const emptyProfile = Object.fromEntries(
 
 export default function SimulationPage() {
   const [values, setValues] = useState(() => ({ ...emptyProfile }));
+  const [result, setResult] = useState(null);
+  const titleRef = useRef(null);
+  const restarting = useRef(false);
+  useEffect(() => {
+    if (!result && restarting.current) {
+      titleRef.current?.focus();
+      restarting.current = false;
+    }
+  }, [result]);
+  function restart() {
+    setValues({ ...emptyProfile });
+    restarting.current = true;
+    setResult(null);
+  }
+  function preview(prediction) {
+    // Copie des saisies : jamais de prédiction déduite du profil en développement.
+    setResult({ prediction, profile: { ...values } });
+  }
   function handleChange(event) {
     const { name, value } = event.target;
     // Garder les saisies en texte pour distinguer une valeur vide d’un vrai zéro.
     setValues(previous => ({ ...previous, [name]: value }));
   }
+  if (result) {
+    return <SimulationResult prediction={result.prediction} profile={result.profile} illustrative onRestart={restart} />;
+  }
   return (
     <section aria-labelledby="simulation-title">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <h1 id="simulation-title" className="text-3xl font-bold">Simuler un profil</h1>
+          <h1 id="simulation-title" ref={titleRef} tabIndex={-1} className="text-3xl font-bold">Simuler un profil</h1>
           <p className="mt-2 text-sm text-muted">Renseignez les champs ci-dessous avec des valeurs fictives.</p>
         </div>
         <Button variant="secondary" disabled aria-describedby="profile-help">Charger un profil fictif</Button>
@@ -44,6 +66,16 @@ export default function SimulationPage() {
           <Button type="submit" disabled aria-describedby="contract-help" className="w-full sm:w-auto">Lancer la prédiction</Button>
         </div>
       </form>
+      {import.meta.env.DEV && (
+        <details className="mt-7 rounded-xl border border-dashed border-brand p-4 text-sm">
+          <summary className="cursor-pointer font-medium text-brand">Développement : aperçu du résultat</summary>
+          <p className="mt-3 text-muted">Réponses simulées pour vérifier l’affichage. Aucun appel à Random Forest ni à l’API. Les champs vides restent indiqués comme non renseignés.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button variant="secondary" onClick={() => preview(0)}>Aperçu classe 0</Button>
+            <Button variant="secondary" onClick={() => preview(1)}>Aperçu classe 1</Button>
+          </div>
+        </details>
+      )}
       <details className="mt-7 rounded-xl border border-line p-4 text-sm">
         <summary className="cursor-pointer font-medium">Disponibilité du service</summary>
         <ApiStatus />

@@ -48,3 +48,13 @@ Les champs commencent vides. Les saisies sont conservées comme chaînes pour di
 Les boutons de chargement de profil et de prédiction restent désactivés avec une explication visible : profils fictifs, validation et intégration API appartiennent aux étapes suivantes. Le formulaire ne transmet aucune donnée et ne produit aucune prédiction. Le contrôle `/api/health` reste accessible dans « Disponibilité du service ».
 
 Vérification manuelle : ouvrir `/#simulation`, vérifier les 13 champs, saisir 0 dans une mesure, choisir « Non » et vérifier que ces valeurs restent affichées ; tester les libellés et le clavier ainsi que les mises en page à 375, 768 et 1280 px. Le formulaire utilise une, deux ou trois colonnes selon la largeur.
+
+## Écran de résultat (tâche 08)
+
+`src/components/SimulationResult.jsx` affiche une classe entière 0 (absence) ou 1 (présence), la mention pédagogique, un récapitulatif et le profil complet. Une classe inconnue affiche un message d’erreur ; aucun score de probabilité n’est inventé. Les libellés suivent la cible binaire définie dans le notebook ML.
+
+Dans `npm run dev`, ouvrir `/#simulation` puis « Développement : aperçu du résultat ». Les boutons des classes 0 et 1 affichent une réponse simulée avec une copie des saisies courantes. Les champs vides restent « Non renseigné » ; une valeur 0 est conservée. Cet aperçu est exclu du build de production et n’appelle aucune API. Ce n’est pas un jeu de profils de démonstration validés.
+
+« Nouvelle simulation » efface le résultat et les saisies, et replace le focus sur le formulaire. Le lien « Voir les performances » ouvre la vue correspondante. Le focus est placé sur le titre lors de l’apparition du résultat. La connexion à `/predict` reste à réaliser après validation du contrat.
+
+Contrôle manuel : essayer chaque classe en développement, vérifier l’absence de pourcentage, saisir âge/tension/cholestérol avant l’aperçu et vérifier le récapitulatif ; tester « Nouvelle simulation », le clavier et le rendu mobile.
