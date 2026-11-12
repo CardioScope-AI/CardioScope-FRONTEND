@@ -6,6 +6,7 @@ import Button from '../components/ui/Button.jsx';
 import FormField from '../components/ui/FormField.jsx';
 import ApiStatus from '../components/ApiStatus.jsx';
 import { simulationGroups } from '../data/simulationFields.js';
+import { profilsFictifs } from '../data/profils.js';
 
 const emptyProfile = Object.fromEntries(
   simulationGroups.flatMap(group => group.fields.map(field => [field.name, ''])),
@@ -17,6 +18,7 @@ export default function SimulationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+  const [selectedProfileId, setSelectedProfileId] = useState('');
   const requestRef = useRef(null);
   const errorRef = useRef(null);
   const formRef = useRef(null);
@@ -34,9 +36,22 @@ export default function SimulationPage() {
     setError('');
     setFieldErrors({});
     setValues({ ...emptyProfile });
+    setSelectedProfileId('');
     restarting.current = true;
     setResult(null);
   }
+
+  function handleLoadProfile(event) {
+    const profileId = event.target.value;
+    setSelectedProfileId(profileId);
+    const profile = profilsFictifs.find(item => item.id === profileId);
+    if (profile) {
+      setValues({ ...profile.values });
+      setFieldErrors({});
+      setError('');
+    }
+  }
+
   function preview(prediction) {
     // Copie des saisies : jamais de prédiction déduite du profil en développement.
     setError('');
@@ -46,6 +61,7 @@ export default function SimulationPage() {
     const { name, value } = event.target;
     // Garder les saisies en texte pour distinguer une valeur vide d’un vrai zéro.
     setValues(previous => ({ ...previous, [name]: value }));
+    setSelectedProfileId('');
     setFieldErrors(previous => ({ ...previous, [name]: undefined }));
     setError('');
   }
@@ -86,9 +102,29 @@ export default function SimulationPage() {
           <h1 id="simulation-title" ref={titleRef} tabIndex={-1} className="text-3xl font-bold">Simuler un profil</h1>
           <p className="mt-2 text-sm text-muted">Renseignez les champs ci-dessous avec des valeurs fictives.</p>
         </div>
-        <Button variant="secondary" disabled aria-describedby="profile-help">Charger un profil fictif</Button>
+        <div className="flex flex-col sm:items-end">
+          <label htmlFor="select-profile" className="sr-only">Charger un profil fictif</label>
+          <select
+            id="select-profile"
+            value={selectedProfileId}
+            onChange={handleLoadProfile}
+            disabled={loading}
+            className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+          >
+            <option value="">Charger un profil fictif…</option>
+            {profilsFictifs.map(profile => (
+              <option key={profile.id} value={profile.id}>
+                {profile.label}
+              </option>
+            ))}
+          </select>
+          {selectedProfileId && (
+            <p className="mt-2 max-w-xs text-xs text-muted sm:text-right" role="status">
+              {profilsFictifs.find(p => p.id === selectedProfileId)?.description}
+            </p>
+          )}
+        </div>
       </div>
-      <p id="profile-help" className="mt-3 text-xs text-muted">Le chargement des profils fictifs sera ajouté dans une prochaine étape.</p>
       <p id="contract-help" className="mt-4 rounded-lg bg-brand-soft p-3 text-sm text-brand">
         Tous les champs sont obligatoires. Utilisez uniquement des valeurs fictives.
       </p>

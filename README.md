@@ -45,7 +45,7 @@ Le frontend présente uniquement Random Forest (forêt aléatoire). La page Donn
 
 Les champs commencent vides. Les saisies sont conservées comme chaînes pour distinguer une valeur vide de zéro. Les listes ont une option vide « Sélectionner ». Les 13 champs sont désormais obligatoires selon le contrat de travail accepté ; les bornes métier restent à confirmer. La fréquence cardiaque et l'âge utilisent un pas entier ; les autres mesures acceptent les décimales.
 
-Le bouton de chargement de profil reste désactivé en attendant la tâche dédiée. Le bouton de prédiction est connecté au client HTTP selon le contrat de travail décrit ci-dessous. Le contrôle `/api/health` reste accessible dans « Disponibilité du service ».
+Le sélecteur de profils fictifs préremplit les 13 champs avec l’un des trois exemples de `src/data/profils.js`. Modifier ensuite une valeur désélectionne l’exemple affiché. Le bouton de prédiction est connecté au client HTTP selon le contrat de travail décrit ci-dessous. Le contrôle `/api/health` reste accessible dans « Disponibilité du service ».
 
 Vérification manuelle : ouvrir `/#simulation`, vérifier les 13 champs, saisir 0 dans une mesure, choisir « Non » et vérifier que ces valeurs restent affichées ; tester les libellés et le clavier ainsi que les mises en page à 375, 768 et 1280 px. Le formulaire utilise une, deux ou trois colonnes selon la largeur.
 
@@ -67,6 +67,6 @@ Le brouillon est adopté comme contrat de travail : `POST /predict`, les 13 cham
 
 `src/api/prediction.js` gère la requête, les erreurs HTTP, les réponses mal formées, le délai de 15 secondes et l'annulation. Le formulaire bloque les doubles envois et les modifications pendant l'attente. Les saisies sont conservées en cas d'erreur ; le message reçoit le focus. Le résultat affiche une copie des valeurs numériques envoyées, sans mention de simulation pour une réponse API. « Nouvelle simulation » efface saisies et résultat. Quitter la vue annule la requête.
 
-Le chargement des profils fictifs reste à réaliser dans sa tâche dédiée. Les aperçus de résultat restent explicitement simulés et accessibles uniquement en développement.
+Les trois profils fictifs peuvent être chargés depuis le sélecteur du formulaire ; ils ne préjugent pas du résultat du modèle. Les aperçus de résultat restent explicitement simulés et accessibles uniquement en développement.
 
 Vérification : `node --test tests/*.test.js`, puis `npm run build`. Les tests utilisent des réponses HTTP simulées et ne valident pas une prédiction réelle. Une API sans `/predict` renverra un message de service indisponible (404) ; un backend arrêté produira une erreur réseau ou proxy. Une vérification de bout en bout reste nécessaire dès que la route et le modèle entraîné sont disponibles.
