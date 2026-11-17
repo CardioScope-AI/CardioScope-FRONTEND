@@ -102,14 +102,14 @@ export default function SimulationPage() {
           <h1 id="simulation-title" ref={titleRef} tabIndex={-1} className="text-3xl font-bold">Simuler un profil</h1>
           <p className="mt-2 text-sm text-muted">Renseignez les champs ci-dessous avec des valeurs fictives.</p>
         </div>
-        <div className="flex flex-col sm:items-end">
+        <div className="flex min-w-0 flex-col sm:items-end">
           <label htmlFor="select-profile" className="sr-only">Charger un profil fictif</label>
           <select
             id="select-profile"
             value={selectedProfileId}
             onChange={handleLoadProfile}
             disabled={loading}
-            className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+            className="w-full min-w-0 max-w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:border-brand focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand sm:w-auto"
           >
             <option value="">Charger un profil fictif…</option>
             {profilsFictifs.map(profile => (
