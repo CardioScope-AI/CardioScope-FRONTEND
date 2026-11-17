@@ -49,8 +49,8 @@ export default function SimulationResult({ prediction, profile, illustrative = f
         </aside>
       </div>
       <div className="mt-7 flex flex-col gap-4 sm:flex-row">
-        <Button onClick={onRestart}>Nouvelle simulation</Button>
-        <Button href="#performances" variant="secondary">Voir les performances</Button>
+        <Button onClick={onRestart} className="w-full sm:w-auto">Nouvelle simulation</Button>
+        <Button href="#performances" variant="secondary" className="w-full sm:w-auto">Voir les performances</Button>
       </div>
       <details className="mt-6 rounded-xl border border-line p-4 text-sm">
         <summary className="cursor-pointer font-medium">Voir le profil complet</summary>
