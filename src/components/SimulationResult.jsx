@@ -1,19 +1,33 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Button from './ui/Button.jsx';
 import { simulationGroups } from '../data/simulationFields.js';
+import { formatProfileValue } from '../data/formatProfileValue.js';
+export { formatProfileValue } from '../data/formatProfileValue.js';
 
 const labels = { 0: 'absence', 1: 'présence' };
 
-export function formatProfileValue(field, value) {
-  if (value === '' || value === null || value === undefined) return 'Non renseigné';
-  if (field.options) {
-    return field.options.find(([code]) => String(code) === String(value))?.[1] ?? 'Valeur non reconnue';
-  }
-  const units = { age: 'ans', trestbps: 'mmHg', chol: 'mg/dL', thalach: 'bpm' };
-  return units[field.name] ? `${value} ${units[field.name]}` : String(value);
-}
-
 export default function SimulationResult({ prediction, profile, illustrative = false, onRestart }) {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const [exportStatus, setExportStatus] = useState('');
+  const exportRef = useRef(false);
+  async function exportPdf() {
+    if (exportRef.current) return;
+    exportRef.current = true;
+    setExporting(true);
+    setExportError('');
+    setExportStatus('');
+    try {
+      const { downloadSimulationPdf } = await import('../pdf/simulationPdf.js');
+      await downloadSimulationPdf({ prediction, profile: { ...profile }, illustrative });
+      setExportStatus('PDF préparé. Consultez les téléchargements de votre navigateur.');
+    } catch {
+      setExportError('Le PDF n’a pas pu être généré. Réessayez ; votre résultat reste disponible.');
+    } finally {
+      exportRef.current = false;
+      setExporting(false);
+    }
+  }
   const titleRef = useRef(null);
   useEffect(() => { titleRef.current?.focus(); }, []);
   const valid = prediction === 0 || prediction === 1;
@@ -51,7 +65,12 @@ export default function SimulationResult({ prediction, profile, illustrative = f
       <div className="mt-7 flex flex-col gap-4 sm:flex-row">
         <Button onClick={onRestart} className="w-full sm:w-auto">Nouvelle simulation</Button>
         <Button href="#performances" variant="secondary" className="w-full sm:w-auto">Voir les performances</Button>
+        <Button variant="secondary" disabled={!valid || exporting} onClick={exportPdf} className="w-full sm:w-auto">
+          {exporting ? 'Préparation du PDF…' : illustrative ? 'Exporter l’aperçu en PDF' : 'Exporter en PDF'}
+        </Button>
       </div>
+      {exportError && <p role="alert" className="mt-3 text-sm text-brand">{exportError}</p>}
+      <p role="status" aria-live="polite" className="mt-3 text-sm text-muted">{exporting ? 'Préparation du PDF en cours.' : exportStatus}</p>
       <details className="mt-6 rounded-xl border border-line p-4 text-sm">
         <summary className="cursor-pointer font-medium">Voir le profil complet</summary>
         <dl className="mt-3 grid gap-x-6 sm:grid-cols-2">
