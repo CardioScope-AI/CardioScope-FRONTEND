@@ -39,6 +39,31 @@ test('signale une panne réseau', async () => {
   await assert.rejects(predict({}), PredictionError);
 });
 
+test('associe les erreurs 422 aux champs connus sans exposer les valeurs reçues', async () => {
+  globalThis.fetch = async () => Response.json({ error: { code: 'validation_error', fields: [
+    { location: ['body', 'age'], message: 'SECRET valeur technique' },
+    { location: ['body', 'chol'], message: 'Autre erreur' },
+    { location: ['body', '__proto__'], message: 'Ignorer' },
+    { location: ['query', 'sex'], message: 'Ignorer' },
+    { location: ['body', 'unknown'], message: 'Ignorer' }, null,
+  ] } }, { status: 422 });
+  await assert.rejects(predict({}), error => {
+    assert.equal(error.status, 422);
+    assert.deepEqual(Object.keys(error.fieldErrors), ['age', 'chol']);
+    assert.ok(!JSON.stringify(error.fieldErrors).includes('SECRET'));
+    return true;
+  });
+});
+
+test('conserve une erreur globale pour les refus sans champ utilisable', async () => {
+  for (const fields of [null, 'invalid', [], [{ location: ['body'] }], [{ location: ['body', 'unknown'] }]]) {
+    globalThis.fetch = async () => Response.json({ error: { fields } }, { status: 422 });
+    await assert.rejects(predict({}), error => error.status === 422 && Object.keys(error.fieldErrors).length === 0);
+  }
+  globalThis.fetch = async () => Response.json({ error: { fields: [{ location: ['body', 'age'] }] } }, { status: 503 });
+  await assert.rejects(predict({}), error => error.status === 503 && Object.keys(error.fieldErrors).length === 0);
+});
+
 function pendingFetch(_url, { signal }) {
   return new Promise((_resolve, reject) => {
     if (signal.aborted) reject(signal.reason);
