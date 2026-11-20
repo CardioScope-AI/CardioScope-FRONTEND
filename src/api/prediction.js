@@ -1,10 +1,26 @@
-// Adaptateur provisoire fondé sur le brouillon contrat-api.md.
-// Brouillon accepté comme contrat de travail ; validation réelle backend encore à effectuer.
+import { simulationGroups } from '../data/simulationFields.js';
+
+const knownFields = new Set(simulationGroups.flatMap(group => group.fields.map(field => field.name)));
+
+function readFieldErrors(body) {
+  const result = {};
+  if (!Array.isArray(body?.error?.fields)) return result;
+  for (const field of body.error.fields) {
+    const location = field?.location;
+    if (Array.isArray(location) && location[0] === 'body' && knownFields.has(location[1])) {
+      // Do not echo server-provided values or technical validation messages.
+      result[location[1]] = 'Valeur refusée par le service. Vérifiez ce champ.';
+    }
+  }
+  return result;
+}
+
 export class PredictionError extends Error {
-  constructor(message, { status = null, cause } = {}) {
+  constructor(message, { status = null, fieldErrors = {}, cause } = {}) {
     super(message, { cause });
     this.name = 'PredictionError';
     this.status = status;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -20,6 +36,8 @@ export async function predict(payload, { signal, timeoutMs = 15000 } = {}) {
       signal: requestSignal,
     });
     if (!response.ok) {
+      let body = null;
+      try { body = await response.json(); } catch { /* Keep the HTTP fallback for a non-JSON proxy error. */ }
       const messages = {
         404: 'Le service de prédiction n’est pas encore disponible.',
         422: 'Les données ont été refusées. Vérifiez les valeurs saisies.',
@@ -27,7 +45,7 @@ export async function predict(payload, { signal, timeoutMs = 15000 } = {}) {
       };
       throw new PredictionError(
         messages[response.status] ?? 'Prédiction indisponible. Réessayez.',
-        { status: response.status },
+        { status: response.status, fieldErrors: response.status === 422 ? readFieldErrors(body) : {} },
       );
     }
     const body = await response.json();

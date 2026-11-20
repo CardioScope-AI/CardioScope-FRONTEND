@@ -24,7 +24,12 @@ export default function SimulationPage() {
   const formRef = useRef(null);
   const titleRef = useRef(null);
   useEffect(() => () => { requestRef.current?.abort(); }, []);
-  useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
+  useEffect(() => {
+    if (!error) return;
+    const firstInvalid = Object.keys(emptyProfile).find(name => fieldErrors[name]);
+    if (firstInvalid) formRef.current?.elements.namedItem(firstInvalid)?.focus();
+    else errorRef.current?.focus();
+  }, [error, fieldErrors]);
   const restarting = useRef(false);
   useEffect(() => {
     if (!result && restarting.current) {
@@ -86,7 +91,10 @@ export default function SimulationPage() {
         setResult({ prediction: response.prediction, profile: { ...payload }, illustrative: false });
       }
     } catch (failure) {
-      if (!controller.signal.aborted) setError(failure.message || 'Prédiction indisponible. Réessayez.');
+      if (!controller.signal.aborted) {
+        setFieldErrors(failure.fieldErrors ?? {});
+        setError(failure.message || 'Prédiction indisponible. Réessayez.');
+      }
     } finally {
       if (requestRef.current === controller) requestRef.current = null;
       if (!controller.signal.aborted) setLoading(false);
