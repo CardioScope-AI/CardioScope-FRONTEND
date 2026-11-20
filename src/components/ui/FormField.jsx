@@ -20,11 +20,9 @@ export default function FormField({ field, value, onChange, error }) {
           {field.options.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
         </select>
       ) : (
-        <>
-          <input {...sharedProps} type="number" step={field.step} placeholder={field.hint} />
-          <p id={`${id}-hint`} className="sr-only">{field.hint}</p>
-        </>
+        <input {...sharedProps} type="number" step={field.step} placeholder={field.placeholder} />
       )}
+      {field.hint && <p id={`${id}-hint`} className="mt-1.5 text-xs leading-relaxed text-muted">{field.hint}</p>}
       {error && <p id={`${id}-error`} className="mt-1 text-xs text-brand">{error}</p>}
     </div>
   );
