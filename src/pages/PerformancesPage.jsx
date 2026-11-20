@@ -7,6 +7,13 @@ const metrics = [
   { label: 'Aire sous la courbe ROC', value: '0,9421', detail: 'Mesure la séparation des deux classes sur le test.' },
 ];
 
+const limitations = [
+  { title: 'Un petit dataset historique', text: '303 profils issus de Cleveland. Les résultats ne démontrent pas une généralisation à une autre population ou à un autre établissement.' },
+  { title: 'Des erreurs possibles', text: 'Le test comporte 6 faux positifs et 2 faux négatifs. Un résultat 0 n’exclut pas une maladie et un résultat 1 ne la confirme pas.' },
+  { title: 'Des performances globales', text: 'Ces scores ne prouvent pas une performance identique selon le sexe ou l’âge. Aucune validation clinique externe n’est présentée.' },
+  { title: 'Un modèle qui reste fixe', text: 'Les simulations enregistrées ne réentraînent pas le modèle. Une nouvelle version exige un entraînement et une évaluation séparés avec des données vérifiées.' },
+];
+
 export default function PerformancesPage() {
   return (
     <section aria-labelledby="performances-title">
@@ -21,6 +28,23 @@ export default function PerformancesPage() {
           l’absence et 1 pour la présence de pathologie dans ce jeu de données.
         </p>
       </div>
+
+      <section aria-labelledby="modele-title" className="mt-8">
+        <h2 id="modele-title" className="text-2xl font-bold">Le modèle Random Forest</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+          Une forêt de 100 arbres combine les informations des 13 variables pour classer un profil fictif.
+          Elle recherche des associations apprises dans les données ; elle n’établit pas leurs causes.
+        </p>
+        <ol className="mt-4 grid gap-4 sm:grid-cols-3">
+          <li className="ui-card"><h3 className="font-bold">1. Préparer les données</h3><p className="mt-2 text-sm leading-6 text-muted">Le pipeline traite les valeurs manquantes et encode les catégories. Ses réglages sont appris sur l’entraînement.</p></li>
+          <li className="ui-card"><h3 className="font-bold">2. Combiner les arbres</h3><p className="mt-2 text-sm leading-6 text-muted">Les 100 arbres analysent les variables. Leurs prédictions sont combinées pour produire la classe finale.</p></li>
+          <li className="ui-card"><h3 className="font-bold">3. Interpréter la classe</h3><p className="mt-2 text-sm leading-6 text-muted">0 signifie absence et 1 présence selon les étiquettes du dataset. Ce sont des classes estimées, pas une certitude individuelle.</p></li>
+        </ol>
+        <p className="mt-4 rounded-lg bg-brand-soft p-4 text-sm font-bold leading-6 text-brand">
+          Démonstrateur pédagogique, profils fictifs uniquement. Le résultat n’est pas un diagnostic médical
+          ni une estimation du risque à 5 ou 10 ans. Aucune probabilité clinique validée n’est fournie.
+        </p>
+      </section>
 
       <section aria-labelledby="donnees-title" className="mt-8">
         <h2 id="donnees-title" className="text-2xl font-bold">Les données utilisées</h2>
@@ -46,6 +70,11 @@ export default function PerformancesPage() {
         <p className="mt-2 max-w-3xl leading-7 text-muted">
           Le modèle final a été entraîné sur les 242 profils d’entraînement,
           puis évalué sur les 61 profils de test gardés à l’écart.
+        </p>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          Référence documentaire : release <span className="font-bold">rf-cleveland-v1</span>.
+          Ces chiffres décrivent cette release ; ils ne garantissent pas les performances d’un autre modèle.
+          La validation croisée à 5 plis utilise seulement les 242 profils d’entraînement et reste distincte de ce test final.
         </p>
         <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {metrics.map(({ label, value, detail }) => (
@@ -89,6 +118,12 @@ export default function PerformancesPage() {
             Ces résultats décrivent un test de 61 profils issus d’un jeu de recherche.
             Ils ne constituent pas une validation clinique ni un diagnostic médical.
           </p>
+        </div>
+      </section>
+      <section aria-labelledby="limites-title" className="mt-10">
+        <h2 id="limites-title" className="text-2xl font-bold">Limites à garder en tête</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {limitations.map(({ title, text }) => <article key={title} className="ui-card"><h3 className="font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-muted">{text}</p></article>)}
         </div>
       </section>
     </section>
