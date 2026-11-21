@@ -1,6 +1,6 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getCsrfToken, loginAdmin, AuthError } from '../src/api/auth.js';
+import { getCsrfToken, loginAdmin, fetchAdminSession, logoutAdmin, AuthError } from '../src/api/auth.js';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
@@ -131,4 +131,64 @@ test('loginAdmin gère l’erreur 503 stockage indisponible', async () => {
     loginAdmin({ username: 'admin', password: 'pwd' }),
     (err) => err.status === 503 && /temporairement indisponible/i.test(err.message)
   );
+});
+
+test('fetchAdminSession renvoie l’identité quand la session est active (200)', async () => {
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/admin/me');
+    assert.equal(options.method, 'GET');
+    assert.equal(options.credentials, 'include');
+    return Response.json({
+      admin: { id: 'admin-id-123', username: 'admin_ensa' },
+      session: { expires_at: '2026-11-21T21:00:00Z', idle_timeout_seconds: 1800 },
+    });
+  };
+
+  const identity = await fetchAdminSession();
+  assert.ok(identity);
+  assert.equal(identity.admin.username, 'admin_ensa');
+});
+
+test('fetchAdminSession renvoie null sans session (401)', async () => {
+  globalThis.fetch = async (url) => {
+    assert.equal(url, '/api/admin/me');
+    return new Response(JSON.stringify({ error: { code: 'unauthenticated' } }), { status: 401 });
+  };
+
+  const identity = await fetchAdminSession();
+  assert.equal(identity, null);
+});
+
+test('fetchAdminSession renvoie null en cas de panne réseau sans lever d’exception', async () => {
+  globalThis.fetch = async () => {
+    throw new TypeError('Failed to fetch');
+  };
+
+  const identity = await fetchAdminSession();
+  assert.equal(identity, null);
+});
+
+test('logoutAdmin appelle POST /admin/logout avec credentials include', async () => {
+  let calledLogout = false;
+  globalThis.fetch = async (url, options) => {
+    if (url === '/api/admin/csrf') {
+      return Response.json({ csrf_token: 'csrf_logout_123' });
+    }
+    if (url === '/api/admin/logout') {
+      calledLogout = true;
+      assert.equal(options.method, 'POST');
+      assert.equal(options.credentials, 'include');
+      assert.equal(options.headers['X-CSRF-Token'], 'csrf_logout_123');
+      return new Response(null, { status: 204 });
+    }
+    throw new Error('Unknown url ' + url);
+  };
+
+  await logoutAdmin();
+  assert.equal(calledLogout, true);
+});
+
+test('logoutAdmin tolère une erreur serveur ou un endpoint absent', async () => {
+  globalThis.fetch = async () => new Response('Not Found', { status: 404 });
+  await assert.doesNotReject(logoutAdmin());
 });
