@@ -4,6 +4,7 @@ const links = [
   ['accueil', 'Accueil'],
   ['simulation', 'Simulation'],
   ['performances', 'Données et performances'],
+  ['historique', 'Historique'],
 ];
 
 export default function Header({ activePage }) {

@@ -3,7 +3,8 @@ import Layout from './components/layout/Layout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import SimulationPage from './pages/SimulationPage.jsx';
 import PerformancesPage from './pages/PerformancesPage.jsx';
-const pages = { accueil: HomePage, simulation: SimulationPage, performances: PerformancesPage };
+import HistoryPage from './pages/HistoryPage.jsx';
+const pages = { accueil: HomePage, simulation: SimulationPage, performances: PerformancesPage, historique: HistoryPage };
 function readPage() {
   const hash = window.location.hash.slice(1);
   return Object.hasOwn(pages, hash) ? hash : 'accueil';
@@ -19,7 +20,8 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
   useEffect(() => {
-    document.title = `${page === 'accueil' ? 'Accueil' : page === 'simulation' ? 'Simulation' : 'Données et performances'} | CardioScope`;
+    const titles = { accueil: 'Accueil', simulation: 'Simulation', performances: 'Données et performances', historique: 'Historique' };
+    document.title = `${titles[page]} | CardioScope`;
   }, [page]);
   const Page = pages[page];
   return <Layout activePage={page}><Page /></Layout>;

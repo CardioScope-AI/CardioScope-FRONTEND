@@ -1,5 +1,21 @@
 # CardioScope · Frontend
 
+## Tableau de bord historique (tâche #25)
+
+La vue `#historique` affiche les simulations enregistrées par
+`GET /api/admin/simulations`. Elle reprend les filtres classe et dates UTC,
+la pagination par 20 résultats, le total et un résumé du profil. Le cookie
+de session est envoyé par le navigateur ; aucun identifiant de session n’est
+lu en JavaScript. Une session absente, un service indisponible ou une réponse
+invalide produisent un message explicite et un bouton pour réessayer. La liste
+est actualisable après une nouvelle simulation. Le détail et la suppression
+sont des tâches distinctes (#27 et #28). La connexion et la protection globale
+des vues sont livrées par les tâches frontend #23 et #24.
+
+L’affichage de lignes réelles nécessite l’écriture des simulations (backend
+#21) puis la consultation (backend #22). Le client et ses cas d’erreur sont
+vérifiés par `node --test tests/history.test.js`.
+
 Interface pédagogique en React, Vite et Tailwind CSS. Accueil, accès à la section simulation et état de disponibilité de l’API. Le formulaire et les prédictions attendent la validation du contrat et le pipeline.
 
 ## Windows (PowerShell)
