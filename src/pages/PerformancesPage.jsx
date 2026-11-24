@@ -1,131 +1,183 @@
-const metrics = [
-  { label: 'Exactitude', value: '86,9 %', detail: '53 profils correctement classés sur 61.' },
-  { label: 'Précision · classe 1', value: '81,3 %', detail: '26 des 32 profils prédits positifs le sont réellement.' },
-  { label: 'Sensibilité · classe 1', value: '92,9 %', detail: '26 des 28 profils de la classe 1 sont reconnus.' },
-  { label: 'Spécificité · classe 0', value: '81,8 %', detail: '27 des 33 profils de la classe 0 sont reconnus.' },
-  { label: 'Score F1 · classe 1', value: '86,7 %', detail: 'Synthèse de la précision et de la sensibilité.' },
-  { label: 'Aire sous la courbe ROC', value: '0,9421', detail: 'Mesure la séparation des deux classes sur le test.' },
+import { useEffect, useState } from 'react';
+import { getModelInfo } from '../api/modelInfo.js';
+
+const scoreLabels = [
+  ['accuracy', 'Exactitude'],
+  ['precision', 'Précision · classe 1'],
+  ['recall', 'Sensibilité · classe 1'],
+  ['specificity', 'Spécificité · classe 0'],
+  ['f1', 'Score F1 · classe 1'],
+  ['roc_auc', 'Aire sous la courbe ROC'],
 ];
 
-const limitations = [
-  { title: 'Un petit dataset historique', text: '303 profils issus de Cleveland. Les résultats ne démontrent pas une généralisation à une autre population ou à un autre établissement.' },
-  { title: 'Des erreurs possibles', text: 'Le test comporte 6 faux positifs et 2 faux négatifs. Un résultat 0 n’exclut pas une maladie et un résultat 1 ne la confirme pas.' },
-  { title: 'Des performances globales', text: 'Ces scores ne prouvent pas une performance identique selon le sexe ou l’âge. Aucune validation clinique externe n’est présentée.' },
-  { title: 'Un modèle qui reste fixe', text: 'Les simulations enregistrées ne réentraînent pas le modèle. Une nouvelle version exige un entraînement et une évaluation séparés avec des données vérifiées.' },
-];
+const percent = new Intl.NumberFormat('fr-FR', {
+  style: 'percent',
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 2,
+});
+
+function formatScore(value) {
+  return value === null ? 'Non fourni' : percent.format(value);
+}
+
+function ScoreSection({ title, description, scores }) {
+  return (
+    <section className="mt-10" aria-label={title}>
+      <h3 className="text-xl font-bold">{title}</h3>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{description}</p>
+      <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {scoreLabels.filter(([key]) => Object.hasOwn(scores, key)).map(([key, label]) => (
+          <div key={key} className="ui-card min-w-0">
+            <dt className="text-sm font-bold text-muted">{label}</dt>
+            <dd className="mt-2 text-2xl font-bold tabular-nums text-brand">{formatScore(scores[key])}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function ConfusionMatrix({ matrix, testSamples, target }) {
+  return (
+    <section className="mt-10" aria-labelledby="matrice-title">
+      <h3 id="matrice-title" className="text-xl font-bold">Matrice de confusion</h3>
+      <p className="mt-2 text-sm leading-6 text-muted">
+        Les lignes indiquent la classe réelle et les colonnes la classe prédite, sur {testSamples} profils de test.
+      </p>
+      {matrix === null ? (
+        <p className="mt-4 rounded-lg bg-surface p-4 text-muted">Matrice non fournie pour cette release.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full max-w-xl min-w-[16rem] border-collapse text-center text-sm tabular-nums">
+            <caption className="sr-only">Matrice de confusion sur le test réservé</caption>
+            <thead><tr className="border-b border-line">
+              <th scope="col" className="p-2 text-left">Classe réelle</th>
+              <th scope="col" className="p-2">Prédite 0</th>
+              <th scope="col" className="p-2">Prédite 1</th>
+            </tr></thead>
+            <tbody>
+              <tr className="border-b border-line">
+                <th scope="row" className="p-2 text-left">0 · {target['0']}</th>
+                <td className="bg-surface p-2 font-bold">{matrix.true_negative}</td>
+                <td className="p-2 font-bold text-brand">{matrix.false_positive}</td>
+              </tr>
+              <tr>
+                <th scope="row" className="p-2 text-left">1 · {target['1']}</th>
+                <td className="p-2 font-bold text-brand">{matrix.false_negative}</td>
+                <td className="bg-surface p-2 font-bold">{matrix.true_positive}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ModelInfoView({ info }) {
+  const { evaluation } = info;
+  const total = evaluation.train_samples + evaluation.test_samples;
+  return (
+    <div>
+      <section className="mt-8" aria-labelledby="release-title">
+        <h2 id="release-title" className="text-2xl font-bold">Release chargée</h2>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="ui-card"><dt className="text-sm text-muted">Version</dt><dd className="mt-2 font-bold">{info.model_version}</dd></div>
+          <div className="ui-card"><dt className="text-sm text-muted">Modèle</dt><dd className="mt-2 font-bold">{info.model_name}</dd></div>
+          <div className="ui-card sm:col-span-2"><dt className="text-sm text-muted">Jeu de données</dt><dd className="mt-2 font-bold">{info.dataset}</dd></div>
+          <div className="ui-card sm:col-span-2">
+            <dt className="text-sm text-muted">Empreinte SHA-256 de l’artefact</dt>
+            <dd className="mt-2 break-all font-mono text-xs">{info.artifact_sha256}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="mt-10" aria-labelledby="donnees-title">
+        <h2 id="donnees-title" className="text-2xl font-bold">Données et classes</h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="ui-card"><p className="text-sm text-muted">Profils au total</p><p className="mt-2 text-3xl font-bold tabular-nums">{total}</p></div>
+          <div className="ui-card"><p className="text-sm text-muted">Entraînement</p><p className="mt-2 text-3xl font-bold tabular-nums">{evaluation.train_samples}</p></div>
+          <div className="ui-card"><p className="text-sm text-muted">Test réservé</p><p className="mt-2 text-3xl font-bold tabular-nums">{evaluation.test_samples}</p></div>
+        </div>
+        <p className="mt-4 text-sm leading-6 text-muted">
+          {info.features.length} variables d’entrée · Classe 0 : {info.target['0']} · Classe 1 : {info.target['1']}.
+        </p>
+        <details className="mt-3 rounded-lg border border-line p-4">
+          <summary className="cursor-pointer font-bold">Voir les variables d’entrée</summary>
+          <p className="mt-3 break-words font-mono text-sm">{info.features.join(', ')}</p>
+        </details>
+      </section>
+
+      <section className="mt-10" aria-labelledby="mesures-title">
+        <h2 id="mesures-title" className="text-2xl font-bold">Évaluation du modèle</h2>
+        <p className="mt-2 max-w-3xl leading-7 text-muted">
+          Les scores de validation croisée et ceux du test réservé décrivent deux étapes distinctes.
+          Une métrique absente est indiquée « Non fourni ».
+        </p>
+        <ScoreSection
+          title="Validation croisée sur l’entraînement"
+          description={evaluation.cv_folds + ' plis, calculés uniquement sur les profils d’entraînement.'}
+          scores={evaluation.cv_metrics}
+        />
+        <ScoreSection
+          title="Test final réservé"
+          description={evaluation.test_samples + ' profils gardés à l’écart de l’entraînement.'}
+          scores={evaluation.test_metrics}
+        />
+        <ConfusionMatrix matrix={evaluation.confusion_matrix} testSamples={evaluation.test_samples} target={info.target} />
+      </section>
+
+      <section className="mt-10" aria-labelledby="limites-title">
+        <h2 id="limites-title" className="text-2xl font-bold">Limites de cette release</h2>
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+          {info.limitations.map((limitation, index) => (
+            <li key={index} className="ui-card text-sm leading-6">{limitation}</li>
+          ))}
+        </ul>
+        <p className="mt-5 rounded-lg bg-brand-soft p-4 text-sm font-bold leading-6 text-brand">
+          Démonstrateur pédagogique avec profils fictifs. Ces résultats ne constituent pas un diagnostic médical.
+        </p>
+      </section>
+    </div>
+  );
+}
 
 export default function PerformancesPage() {
+  const [refresh, setRefresh] = useState(0);
+  const [state, setState] = useState({ status: 'loading' });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ status: 'loading' });
+    getModelInfo({ signal: controller.signal }).then(
+      info => { if (!controller.signal.aborted) setState({ status: 'ready', info }); },
+      error => { if (!controller.signal.aborted) setState({ status: 'error', message: error.message }); },
+    );
+    return () => controller.abort();
+  }, [refresh]);
+
   return (
     <section aria-labelledby="performances-title">
       <div className="rounded-2xl bg-[#fff8fa] p-5 sm:p-8">
         <p className="text-sm font-bold text-brand">Jeu de données et résultats</p>
-        <h1 id="performances-title" className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">
-          Données et performances
-        </h1>
+        <h1 id="performances-title" className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">Données et performances</h1>
         <p className="mt-4 max-w-3xl leading-7 text-muted">
-          CardioScope explore le jeu Cleveland de la collection UCI Heart Disease.
-          Le modèle Random Forest classe les profils en deux catégories : 0 pour
-          l’absence et 1 pour la présence de pathologie dans ce jeu de données.
+          Cette page présente les informations de la release ML réellement chargée par le backend.
+          Les résultats concernent un jeu de recherche et ne garantissent pas la prédiction d’un cas individuel.
         </p>
       </div>
 
-      <section aria-labelledby="modele-title" className="mt-8">
-        <h2 id="modele-title" className="text-2xl font-bold">Le modèle Random Forest</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
-          Une forêt de 100 arbres combine les informations des 13 variables pour classer un profil fictif.
-          Elle recherche des associations apprises dans les données ; elle n’établit pas leurs causes.
-        </p>
-        <ol className="mt-4 grid gap-4 sm:grid-cols-3">
-          <li className="ui-card"><h3 className="font-bold">1. Préparer les données</h3><p className="mt-2 text-sm leading-6 text-muted">Le pipeline traite les valeurs manquantes et encode les catégories. Ses réglages sont appris sur l’entraînement.</p></li>
-          <li className="ui-card"><h3 className="font-bold">2. Combiner les arbres</h3><p className="mt-2 text-sm leading-6 text-muted">Les 100 arbres analysent les variables. Leurs prédictions sont combinées pour produire la classe finale.</p></li>
-          <li className="ui-card"><h3 className="font-bold">3. Interpréter la classe</h3><p className="mt-2 text-sm leading-6 text-muted">0 signifie absence et 1 présence selon les étiquettes du dataset. Ce sont des classes estimées, pas une certitude individuelle.</p></li>
-        </ol>
-        <p className="mt-4 rounded-lg bg-brand-soft p-4 text-sm font-bold leading-6 text-brand">
-          Démonstrateur pédagogique, profils fictifs uniquement. Le résultat n’est pas un diagnostic médical
-          ni une estimation du risque à 5 ou 10 ans. Aucune probabilité clinique validée n’est fournie.
-        </p>
-      </section>
-
-      <section aria-labelledby="donnees-title" className="mt-8">
-        <h2 id="donnees-title" className="text-2xl font-bold">Les données utilisées</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div className="ui-card"><p className="text-sm text-muted">Profils Cleveland</p><p className="mt-2 text-3xl font-bold tabular-nums">303</p></div>
-          <div className="ui-card"><p className="text-sm text-muted">Pour l’entraînement</p><p className="mt-2 text-3xl font-bold tabular-nums">242</p></div>
-          <div className="ui-card"><p className="text-sm text-muted">Réservés au test final</p><p className="mt-2 text-3xl font-bold tabular-nums">61</p></div>
+      {state.status === 'loading' && <p role="status" className="mt-8 rounded-lg bg-surface p-5">Chargement de la fiche du modèle…</p>}
+      {state.status === 'error' && (
+        <div className="mt-8 rounded-lg border border-brand bg-brand-soft p-5">
+          <p role="alert" className="font-bold text-brand">{state.message}</p>
+          <p className="mt-2 text-sm text-muted">Aucun chiffre de performance n’est affiché sans fiche validée.</p>
+          <button type="button" className="mt-4 min-h-11 rounded-lg bg-brand px-4 font-bold text-white" onClick={() => setRefresh(value => value + 1)}>
+            Réessayer
+          </button>
         </div>
-        <p className="mt-4 max-w-3xl text-sm leading-6 text-muted">
-          Chaque profil comporte 13 variables d’entrée. La cible d’origine,
-          <code className="mx-1 rounded bg-surface px-1">num</code>, est regroupée
-          en deux classes. Les valeurs manquantes sont traitées dans le pipeline,
-          à partir des données d’entraînement.
-        </p>
-        <a className="mt-3 inline-block text-sm font-bold text-brand underline underline-offset-4"
-          href="https://archive.ics.uci.edu/dataset/45/heart+disease" target="_blank" rel="noopener noreferrer">
-          Consulter la source UCI Heart Disease
-        </a>
-      </section>
-
-      <section aria-labelledby="mesures-title" className="mt-10">
-        <h2 id="mesures-title" className="text-2xl font-bold">Résultats sur le test réservé</h2>
-        <p className="mt-2 max-w-3xl leading-7 text-muted">
-          Le modèle final a été entraîné sur les 242 profils d’entraînement,
-          puis évalué sur les 61 profils de test gardés à l’écart.
-        </p>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          Référence documentaire : release <span className="font-bold">rf-cleveland-v1</span>.
-          Ces chiffres décrivent cette release ; ils ne garantissent pas les performances d’un autre modèle.
-          La validation croisée à 5 plis utilise seulement les 242 profils d’entraînement et reste distincte de ce test final.
-        </p>
-        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {metrics.map(({ label, value, detail }) => (
-            <div key={label} className="ui-card min-w-0">
-              <dt className="text-sm font-bold text-muted">{label}</dt>
-              <dd className="mt-2 text-3xl font-bold tabular-nums text-brand">{value}</dd>
-              <p className="mt-3 text-sm leading-6 text-muted">{detail}</p>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section aria-labelledby="matrice-title" className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="ui-card min-w-0">
-          <h2 id="matrice-title" className="text-xl font-bold">Matrice de confusion</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">Les lignes indiquent la classe réelle, les colonnes la classe prédite.</p>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[16rem] border-collapse text-center text-sm tabular-nums">
-              <caption className="sr-only">Prédictions du modèle sur les 61 profils de test</caption>
-              <thead><tr className="border-b border-line">
-                <th scope="col" className="p-2 text-left">Classe réelle</th>
-                <th scope="col" className="p-2">Prédite 0</th>
-                <th scope="col" className="p-2">Prédite 1</th>
-              </tr></thead>
-              <tbody>
-                <tr className="border-b border-line"><th scope="row" className="p-2 text-left">0 · absence</th><td className="bg-surface p-2 font-bold">27</td><td className="p-2 font-bold text-brand">6</td></tr>
-                <tr><th scope="row" className="p-2 text-left">1 · présence</th><td className="p-2 font-bold text-brand">2</td><td className="bg-surface p-2 font-bold">26</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-muted">Sur ce test, le modèle produit 6 faux positifs et 2 faux négatifs.</p>
-        </div>
-        <div className="rounded-xl bg-surface p-5 sm:p-6">
-          <h2 className="text-xl font-bold">Comment lire ces chiffres ?</h2>
-          <p className="mt-3 text-sm leading-6 text-muted">
-            La sensibilité indique la part des profils de classe 1 reconnus.
-            La spécificité indique la part des profils de classe 0 reconnus.
-            L’exactitude compte toutes les prédictions correctes.
-          </p>
-          <p className="mt-4 text-sm leading-6 text-muted">
-            Ces résultats décrivent un test de 61 profils issus d’un jeu de recherche.
-            Ils ne constituent pas une validation clinique ni un diagnostic médical.
-          </p>
-        </div>
-      </section>
-      <section aria-labelledby="limites-title" className="mt-10">
-        <h2 id="limites-title" className="text-2xl font-bold">Limites à garder en tête</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {limitations.map(({ title, text }) => <article key={title} className="ui-card"><h3 className="font-bold">{title}</h3><p className="mt-2 text-sm leading-6 text-muted">{text}</p></article>)}
-        </div>
-      </section>
+      )}
+      {state.status === 'ready' && <ModelInfoView info={state.info} />}
     </section>
   );
 }
