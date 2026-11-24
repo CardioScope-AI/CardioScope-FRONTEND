@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Button from '../components/ui/Button.jsx';
 import { loginAdmin, AuthError } from '../api/auth.js';
 
-export default function AdminLoginPage({ onLoginSuccess }) {
+export default function AdminLoginPage({ onLoginSuccess, sessionExpired = false }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -79,6 +79,20 @@ export default function AdminLoginPage({ onLoginSuccess }) {
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            {sessionExpired && !error && (
+              <div
+                role="alert"
+                className="rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900"
+              >
+                <div className="flex items-start gap-2.5">
+                  <svg className="mt-0.5 size-4 shrink-0 text-amber-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+                  </svg>
+                  <p className="font-semibold">Votre session a expiré. Veuillez vous reconnecter.</p>
+                </div>
+              </div>
+            )}
+
             {error && (
               <div
                 role="alert"

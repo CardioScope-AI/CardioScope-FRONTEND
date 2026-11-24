@@ -122,3 +122,55 @@ export async function loginAdmin({ username, password }, { signal, csrfToken = n
     throw new AuthError('Erreur de connexion au serveur.', { cause: error });
   }
 }
+
+export async function fetchAdminSession({ signal, timeoutMs = 8000 } = {}) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  try {
+    const response = await fetch('/api/admin/me', {
+      method: 'GET',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' },
+      signal: requestSignal,
+    });
+
+    if (response.status === 401) {
+      return null;
+    }
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    if (!data || !data.admin) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export async function logoutAdmin({ signal, timeoutMs = 8000 } = {}) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  try {
+    let token = null;
+    try {
+      token = await getCsrfToken({ signal, timeoutMs: 3000 });
+    } catch {
+      // Ignorer si CSRF n'est pas joignable pour tenter quand même le logout
+    }
+
+    await fetch('/api/admin/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        ...(token ? { 'X-CSRF-Token': token } : {}),
+      },
+      signal: requestSignal,
+    });
+  } catch {
+    // Erreur réseau tolérée : la déconnexion locale doit avoir lieu dans tous les cas
+  }
+}
