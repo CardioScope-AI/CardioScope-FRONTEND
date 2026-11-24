@@ -1,5 +1,21 @@
 # CardioScope · Frontend
 
+## Tableau de bord historique (tâche #25)
+
+La vue `#historique` affiche les simulations enregistrées par
+`GET /api/admin/simulations`. Elle reprend les filtres classe et dates UTC,
+la pagination par 20 résultats, le total et un résumé du profil. Le cookie
+de session est envoyé par le navigateur ; aucun identifiant de session n’est
+lu en JavaScript. Une session absente, un service indisponible ou une réponse
+invalide produisent un message explicite et un bouton pour réessayer. La liste
+est actualisable après une nouvelle simulation. Le détail et la suppression
+sont des tâches distinctes (#27 et #28). La connexion et la protection globale
+des vues sont livrées par les tâches frontend #23 et #24.
+
+L’affichage de lignes réelles nécessite l’écriture des simulations (backend
+#21) puis la consultation (backend #22). Le client et ses cas d’erreur sont
+vérifiés par `node --test tests/history.test.js`.
+
 Interface pédagogique en React, Vite et Tailwind CSS. Accueil, accès à la section simulation et état de disponibilité de l’API. Le formulaire et les prédictions attendent la validation du contrat et le pipeline.
 
 ## Windows (PowerShell)
@@ -37,7 +53,20 @@ Les vues `#accueil`, `#simulation` et `#performances` partagent le layout ; la n
 
 ## Modèle présenté
 
-Le frontend présente uniquement Random Forest (forêt aléatoire). La page Données et performances décrit la cible binaire et distingue la validation croisée sur l’entraînement de l’évaluation finale sur le test réservé. Les métriques restent en attente des résultats validés par l’équipe ML. Ce choix adapte les textes des maquettes sans changer leur thème ni la navigation.
+Le frontend présente uniquement Random Forest (forêt aléatoire). La page Données et performances distingue la validation croisée sur l’entraînement de l’évaluation finale sur le test réservé. La fiche de la release chargée provient de `GET /api/model-info` ; aucun score n’est affiché si cette fiche n’est pas disponible.
+
+## Fiche du modèle depuis l’API (tâche #29)
+
+`src/api/modelInfo.js` appelle `GET /api/model-info` avec le cookie de session administrateur, sans cache. La page affiche la version et l’empreinte de la release, les effectifs, les classes, les scores de validation croisée et de test, la matrice de confusion et les limites transmis par le backend. Une métrique `null` apparaît comme « Non fourni » ; elle n’est jamais remplacée par zéro. Si la session manque (401) ou si la release n’est pas prête (503), la page affiche un message et un bouton « Réessayer » sans montrer les anciens chiffres.
+
+La route exige une session administrateur et une release ML cohérente. En attendant l’intégration de la page de connexion (#23/#24), un navigateur non connecté reçoit normalement 401. Les tests utilisent une réponse 200 fictive respectant le contrat pour valider le client et les états d’erreur, sans prétendre que le serveur local fournit déjà la fiche.
+
+Depuis le dépôt frontend, vérifier avec :
+
+```powershell
+node --test tests/modelInfo.test.js tests/prediction.test.js tests/validation.test.js tests/pdf.test.js
+npm.cmd run build
+```
 
 ## Formulaire de simulation (tâche 05)
 

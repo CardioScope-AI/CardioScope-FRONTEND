@@ -3,6 +3,7 @@ import Layout from './components/layout/Layout.jsx';
 import HomePage from './pages/HomePage.jsx';
 import SimulationPage from './pages/SimulationPage.jsx';
 import PerformancesPage from './pages/PerformancesPage.jsx';
+import HistoryPage from './pages/HistoryPage.jsx';
 import AdminLoginPage from './pages/AdminLoginPage.jsx';
 import { fetchAdminSession, logoutAdmin } from './api/auth.js';
 
@@ -10,6 +11,7 @@ const pages = {
   accueil: HomePage,
   simulation: SimulationPage,
   performances: PerformancesPage,
+  historique: HistoryPage,
   'connexion-admin': AdminLoginPage,
 };
 
@@ -22,6 +24,7 @@ const pageTitles = {
   accueil: 'Accueil',
   simulation: 'Simulation',
   performances: 'Données et performances',
+  historique: 'Historique',
   'connexion-admin': 'Connexion',
 };
 
