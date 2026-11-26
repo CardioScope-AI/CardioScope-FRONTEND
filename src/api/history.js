@@ -1,3 +1,4 @@
+import { getCsrfToken } from './auth.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class HistoryError extends Error {
@@ -193,6 +194,85 @@ export async function fetchSimulationDetail(
 
     throw new HistoryError(
       'Impossible de charger le détail. Vérifiez votre connexion.',
+      { cause: error },
+    );
+  }
+}
+export async function deleteSimulation(
+  id,
+  { signal, timeoutMs = 15000 } = {},
+) {
+  // Vérifier l’UUID avant d’envoyer une requête au serveur.
+  if (typeof id !== 'string' || !UUID.test(id)) {
+    throw new HistoryError(
+      'L’identifiant de la simulation est invalide.',
+      { status: 422 },
+    );
+  }
+
+  // Le délai s’applique à la récupération du jeton et à la suppression.
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const requestSignal = signal
+    ? AbortSignal.any([signal, timeout])
+    : timeout;
+
+  try {
+    const csrfToken = await getCsrfToken({
+      signal: requestSignal,
+      timeoutMs,
+    });
+
+    const response = await fetch(
+      `/api/admin/simulations/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        cache: 'no-store',
+        signal: requestSignal,
+      },
+    );
+
+    // Le contrat prévoit exactement 204 et aucun corps JSON.
+    if (response.status === 204) {
+      return;
+    }
+
+    const messages = {
+      401: 'Votre session a expiré. Connectez-vous pour supprimer cette simulation.',
+      403: 'La vérification de sécurité a échoué. Rechargez la page et réessayez.',
+      404: 'Cette simulation est introuvable ou a déjà été supprimée.',
+      422: 'L’identifiant de la simulation a été refusé.',
+      503: 'Le stockage est indisponible. Réessayez plus tard.',
+    };
+
+    throw new HistoryError(
+      messages[response.status] ?? 'Impossible de supprimer cette simulation.',
+      { status: response.status },
+    );
+  } catch (error) {
+    // Une annulation demandée par la page est transmise à son appelant.
+    if (signal?.aborted) {
+      throw error;
+    }
+
+    if (timeout.aborted) {
+      throw new HistoryError(
+        'Le service met trop de temps à répondre. Réessayez.',
+        { cause: error },
+      );
+    }
+
+    if (error instanceof HistoryError) {
+      throw error;
+    }
+
+    // Ne pas afficher les détails techniques d’une erreur réseau.
+    throw new HistoryError(
+      'Impossible de supprimer cette simulation. Vérifiez la connexion.',
       { cause: error },
     );
   }

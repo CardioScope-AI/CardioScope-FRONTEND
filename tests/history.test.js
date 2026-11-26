@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import {
+  deleteSimulation,
   fetchHistory,
   fetchSimulationDetail,
   HistoryError,
@@ -33,6 +34,18 @@ const detail = {
     thal: 6,
   },
 };
+
+function mockFetchWithCsrf(deleteHandler) {
+  globalThis.fetch = async (url, options = {}) => {
+    if (url === '/api/admin/csrf') {
+      assert.equal(options.method, 'GET');
+      assert.equal(options.credentials, 'include');
+      return Response.json({ csrf_token: 'test-csrf-token' });
+    }
+
+    return deleteHandler(url, options);
+  };
+}
 
 test('sends contract filters and reads the matching page without a token', async () => {
   let request;
@@ -186,4 +199,110 @@ test('handles network errors, timeouts, and cancelled detail requests', async ()
     fetchSimulationDetail(detail.id, { signal: controller.signal }),
     { name: 'AbortError' },
   );
+});
+
+test('deletes one simulation with CSRF and accepts an empty 204 response', async () => {
+  let request;
+  let jsonWasRead = false;
+
+  mockFetchWithCsrf(async (url, options) => {
+    request = { url, options };
+
+    return {
+      status: 204,
+      ok: true,
+      json: async () => {
+        jsonWasRead = true;
+        throw new Error('A 204 response must not be parsed as JSON.');
+      },
+    };
+  });
+
+  await deleteSimulation(item.id);
+
+  const url = new URL(request.url, 'http://localhost');
+  assert.equal(url.pathname, `/api/admin/simulations/${item.id}`);
+  assert.equal(request.options.method, 'DELETE');
+  assert.equal(request.options.credentials, 'same-origin');
+  assert.equal(request.options.headers.Accept, 'application/json');
+  assert.equal(request.options.headers['X-CSRF-Token'], 'test-csrf-token');
+  assert.equal(request.options.cache, 'no-store');
+  assert.equal(jsonWasRead, false);
+});
+
+test('maps delete HTTP errors to safe messages', async () => {
+  for (const status of [401, 403, 404, 422, 503]) {
+    mockFetchWithCsrf(async () => ({
+      status,
+      ok: false,
+    }));
+
+    await assert.rejects(
+      deleteSimulation(item.id),
+      error => {
+        assert.ok(error instanceof HistoryError);
+        assert.equal(error.status, status);
+        assert.doesNotMatch(error.message, /private server detail/i);
+        return true;
+      },
+    );
+  }
+});
+
+test('rejects an invalid delete id without making a request', async () => {
+  let requestCount = 0;
+  globalThis.fetch = async () => {
+    requestCount += 1;
+    throw new Error('The network should not be called.');
+  };
+
+  await assert.rejects(
+    deleteSimulation('not-a-uuid'),
+    error => error instanceof HistoryError && error.status === 422,
+  );
+  assert.equal(requestCount, 0);
+});
+
+test('turns delete network failures into a safe HistoryError', async () => {
+  mockFetchWithCsrf(async () => {
+    throw new TypeError('private network detail');
+  });
+
+  await assert.rejects(
+    deleteSimulation(item.id),
+    error => {
+      assert.ok(error instanceof HistoryError);
+      assert.equal(error.status, null);
+      assert.doesNotMatch(error.message, /private network detail/);
+      return true;
+    },
+  );
+});
+
+test('handles delete timeouts and caller cancellation', async () => {
+  const waitForAbort = signal => new Promise((_resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, { once: true });
+  });
+
+  mockFetchWithCsrf(async (_url, { signal }) => waitForAbort(signal));
+  const keepAlive = setTimeout(() => {}, 1000);
+
+  try {
+    await assert.rejects(
+      deleteSimulation(item.id, { timeoutMs: 10 }),
+      error => error instanceof HistoryError && /trop de temps/.test(error.message),
+    );
+  } finally {
+    clearTimeout(keepAlive);
+  }
+
+  const controller = new AbortController();
+  mockFetchWithCsrf(async (_url, { signal }) => waitForAbort(signal));
+  const pending = deleteSimulation(item.id, { signal: controller.signal });
+  await new Promise(resolve => setImmediate(resolve));
+  controller.abort();
+
+  await assert.rejects(pending, { name: 'AbortError' });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  deleteSimulation,
   fetchHistory,
   fetchSimulationDetail,
 } from '../api/history.js';
@@ -46,6 +47,8 @@ export default function HistoryPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [detailRefresh, setDetailRefresh] = useState(0);
+  const [deletingId, setDeletingId] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -140,6 +143,37 @@ export default function HistoryPage() {
     setDetail(null);
     setDetailError('');
     setDetailLoading(false);
+  }
+
+  async function handleDelete(item) {
+    if (deletingId) return;
+
+    const confirmed = window.confirm(
+      'Supprimer définitivement cette simulation ? Cette action ne peut pas être annulée.',
+    );
+
+    if (!confirmed) return;
+
+    setDeletingId(item.id);
+    setDeleteError('');
+
+    try {
+      await deleteSimulation(item.id);
+
+      if (detailId === item.id) {
+        closeDetail();
+      }
+
+      if (result?.items.length === 1 && page > 1) {
+        setPage(currentPage => Math.max(1, currentPage - 1));
+      } else {
+        setRefresh(value => value + 1);
+      }
+    } catch (failure) {
+      setDeleteError(failure.message);
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const totalPages = result
@@ -276,6 +310,12 @@ export default function HistoryPage() {
         </div>
       )}
 
+      {deleteError && (
+        <p role="alert" className="ui-card mt-4 border-brand text-brand">
+          {deleteError}
+        </p>
+      )}
+
       {!loading && result?.total === 0 && (
         <p className="ui-card mt-4 text-muted">
           Aucune simulation ne correspond à ces filtres.
@@ -314,12 +354,23 @@ export default function HistoryPage() {
                   <dd className="break-all">{item.model_version}</dd>
                 </dl>
 
-                <Button
-                  className="mt-4 w-full"
-                  onClick={() => openDetail(item.id)}
-                >
-                  Voir le détail
-                </Button>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => openDetail(item.id)}
+                  >
+                    Voir le détail
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => handleDelete(item)}
+                    disabled={deletingId !== null}
+                  >
+                    {deletingId === item.id ? 'Suppression…' : 'Supprimer'}
+                  </Button>
+                </div>
               </li>
             ))}
           </ol>
@@ -335,7 +386,7 @@ export default function HistoryPage() {
                   <th scope="col" className="px-4 py-3">Classe prédite</th>
                   <th scope="col" className="px-4 py-3">Profil résumé</th>
                   <th scope="col" className="px-4 py-3">Version du modèle</th>
-                  <th scope="col" className="px-4 py-3">Détail</th>
+                  <th scope="col" className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -358,12 +409,21 @@ export default function HistoryPage() {
                       {item.model_version}
                     </td>
                     <td className="px-4 py-4">
+                      <div className="flex flex-wrap gap-2">
                       <Button
                         variant="secondary"
                         onClick={() => openDetail(item.id)}
                       >
                         Voir le détail
                       </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleDelete(item)}
+                        disabled={deletingId !== null}
+                      >
+                        {deletingId === item.id ? 'Suppression…' : 'Supprimer'}
+                      </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
