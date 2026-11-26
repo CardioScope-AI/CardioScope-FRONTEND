@@ -1,17 +1,30 @@
 import { simulationGroups } from '../data/simulationFields.js';
+import { getCsrfToken } from './auth.js';
 
-const knownFields = new Set(simulationGroups.flatMap(group => group.fields.map(field => field.name)));
+const knownFields = new Set(
+  simulationGroups.flatMap(group =>
+    group.fields.map(field => field.name),
+  ),
+);
 
 function readFieldErrors(body) {
   const result = {};
+
   if (!Array.isArray(body?.error?.fields)) return result;
+
   for (const field of body.error.fields) {
     const location = field?.location;
-    if (Array.isArray(location) && location[0] === 'body' && knownFields.has(location[1])) {
-      // Do not echo server-provided values or technical validation messages.
+
+    if (
+      Array.isArray(location)
+      && location[0] === 'body'
+      && knownFields.has(location[1])
+    ) {
+      // Ne pas afficher les valeurs reçues ni les détails techniques du serveur.
       result[location[1]] = 'Valeur refusée par le service. Vérifiez ce champ.';
     }
   }
+
   return result;
 }
 
@@ -26,41 +39,83 @@ export class PredictionError extends Error {
 
 export async function predict(payload, { signal, timeoutMs = 15000 } = {}) {
   const timeout = AbortSignal.timeout(timeoutMs);
-  const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
-  let response;
+  const requestSignal = signal
+    ? AbortSignal.any([signal, timeout])
+    : timeout;
+
   try {
-    response = await fetch('/api/predict', {
+    const csrfToken = await getCsrfToken({
+      signal: requestSignal,
+      timeoutMs,
+    });
+
+    const response = await fetch('/api/predict', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
       body: JSON.stringify(payload),
       signal: requestSignal,
     });
+
     if (!response.ok) {
       let body = null;
-      try { body = await response.json(); } catch { /* Keep the HTTP fallback for a non-JSON proxy error. */ }
+
+      try {
+        body = await response.json();
+      } catch {
+        // Garder le message de secours si le serveur ne renvoie pas du JSON.
+      }
+
       const messages = {
+        401: 'Votre session a expiré. Reconnectez-vous.',
+        403: 'La vérification de sécurité a échoué. Rechargez la page et reconnectez-vous.',
         404: 'Le service de prédiction n’est pas encore disponible.',
         422: 'Les données ont été refusées. Vérifiez les valeurs saisies.',
-        503: 'Le modèle est indisponible. Réessayez plus tard.',
+        503: 'Le modèle ou le stockage est indisponible. Réessayez plus tard.',
       };
+
       throw new PredictionError(
         messages[response.status] ?? 'Prédiction indisponible. Réessayez.',
-        { status: response.status, fieldErrors: response.status === 422 ? readFieldErrors(body) : {} },
+        {
+          status: response.status,
+          fieldErrors: response.status === 422 ? readFieldErrors(body) : {},
+        },
       );
     }
+
     const body = await response.json();
-    if (body === null || typeof body !== 'object'
-        || (body.prediction !== 0 && body.prediction !== 1)) {
-      throw new PredictionError('La réponse du service ne contient pas une classe valide.');
+
+    if (
+      body === null
+      || typeof body !== 'object'
+      || (body.prediction !== 0 && body.prediction !== 1)
+    ) {
+      throw new PredictionError(
+        'La réponse du service ne contient pas une classe valide.',
+      );
     }
+
     return { prediction: body.prediction };
   } catch (error) {
-    // Une annulation par la vue doit rester silencieuse pour l’appelant.
+    // Une annulation demandée par la page reste silencieuse.
     if (signal?.aborted) throw error;
+
     if (timeout.aborted) {
-      throw new PredictionError('Le service met trop de temps à répondre. Réessayez.', { cause: error });
+      throw new PredictionError(
+        'Le service met trop de temps à répondre. Réessayez.',
+        { cause: error },
+      );
     }
+
     if (error instanceof PredictionError) throw error;
-    throw new PredictionError('Prédiction indisponible. Réessayez.', { cause: error });
+
+    throw new PredictionError(
+      'Prédiction indisponible. Réessayez.',
+      { cause: error },
+    );
   }
 }
