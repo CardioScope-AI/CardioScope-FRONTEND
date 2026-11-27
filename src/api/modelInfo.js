@@ -33,6 +33,7 @@ export function isModelInfo(value) {
       || !Number.isInteger(evaluation.test_samples) || evaluation.test_samples < 1
       || !Number.isInteger(evaluation.cv_folds) || evaluation.cv_folds < 2
       || !hasScores(evaluation.cv_metrics, cvKeys)
+      || (Object.hasOwn(evaluation.cv_metrics, 'specificity') && !isScore(evaluation.cv_metrics.specificity))
       || !hasScores(evaluation.test_metrics, testKeys)) return false;
 
   const matrix = evaluation.confusion_matrix;
@@ -49,11 +50,11 @@ export class ModelInfoError extends Error {
   }
 }
 
-export async function getModelInfo({ signal, timeoutMs = 15000 } = {}) {
+async function requestModelData(url, validate, { signal, timeoutMs = 15000 } = {}) {
   const timeout = AbortSignal.timeout(timeoutMs);
   const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
-    const response = await fetch('/api/model-info', {
+    const response = await fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json' },
       credentials: 'same-origin',
@@ -71,7 +72,7 @@ export async function getModelInfo({ signal, timeoutMs = 15000 } = {}) {
       });
     }
     const body = await response.json();
-    if (!isModelInfo(body)) {
+    if (!validate(body)) {
       throw new ModelInfoError('La fiche du modèle a un format inattendu.');
     }
     return body;
@@ -83,4 +84,20 @@ export async function getModelInfo({ signal, timeoutMs = 15000 } = {}) {
     if (error instanceof ModelInfoError) throw error;
     throw new ModelInfoError('Impossible de contacter le service du modèle.', { cause: error });
   }
+}
+
+export function getModelInfo(options) {
+  return requestModelData('/api/model-info', isModelInfo, options);
+}
+
+export function isModelCatalog(value) {
+  if (!isRecord(value) || value.schema_version !== 1 || !Array.isArray(value.models)
+      || value.models.length < 1 || !value.models.every(isModelInfo)) return false;
+  const versions = value.models.map(info => info.model_version);
+  return new Set(versions).size === versions.length
+    && versions.includes(value.active_model_version);
+}
+
+export function getModelCatalog(options) {
+  return requestModelData('/api/models', isModelCatalog, options);
 }
