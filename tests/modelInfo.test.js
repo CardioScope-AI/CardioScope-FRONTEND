@@ -1,6 +1,6 @@
 import { afterEach, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getModelInfo, ModelInfoError } from '../src/api/modelInfo.js';
+import { getModelInfo, getModelCatalog, ModelInfoError } from '../src/api/modelInfo.js';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; });
@@ -25,6 +25,34 @@ const info = {
   },
   limitations: ['Démonstrateur pédagogique ; pas un diagnostic.'],
 };
+
+test('catalogue : charge deux modèles sans confondre version active et comparaison', async () => {
+  const xgb = { ...info, model_name: 'XGBClassifier', model_version: 'xgb-cleveland-v1' };
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, '/api/models');
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.cache, 'no-store');
+    return Response.json({ schema_version: 1, active_model_version: info.model_version, models: [info, xgb] });
+  };
+  const catalog = await getModelCatalog();
+  assert.equal(catalog.models.length, 2);
+  assert.equal(catalog.active_model_version, 'rf-cleveland-v1');
+});
+
+test('catalogue : refuse doublons, modèle actif absent et scores invalides', async () => {
+  for (const models of [[info, info], [], [{ ...info, model_version: 'other' }],
+    [{ ...info, evaluation: { ...info.evaluation, cv_metrics: { ...info.evaluation.cv_metrics, specificity: 2 } } }]]) {
+    globalThis.fetch = async () => Response.json({ schema_version: 1, active_model_version: info.model_version, models });
+    await assert.rejects(getModelCatalog(), ModelInfoError);
+  }
+});
+
+test('catalogue : conserve les statuts 401 et 503', async () => {
+  for (const status of [401, 503]) {
+    globalThis.fetch = async () => Response.json({}, { status });
+    await assert.rejects(getModelCatalog(), error => error.status === status);
+  }
+});
 
 test('charge la release authentifiée sans confondre zéro et métrique absente', async () => {
   globalThis.fetch = async (url, options) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getModelInfo } from '../api/modelInfo.js';
+import { getModelCatalog } from '../api/modelInfo.js';
 
 const scoreLabels = [
   ['accuracy', 'Exactitude'],
@@ -80,7 +80,7 @@ function ModelInfoView({ info }) {
   return (
     <div>
       <section className="mt-8" aria-labelledby="release-title">
-        <h2 id="release-title" className="text-2xl font-bold">Release chargée</h2>
+        <h2 id="release-title" className="text-2xl font-bold">Détail de la version évaluée</h2>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="ui-card"><dt className="text-sm text-muted">Version</dt><dd className="mt-2 font-bold">{info.model_version}</dd></div>
           <div className="ui-card"><dt className="text-sm text-muted">Modèle</dt><dd className="mt-2 font-bold">{info.model_name}</dd></div>
@@ -142,16 +142,68 @@ function ModelInfoView({ info }) {
   );
 }
 
-export default function PerformancesPage() {
+function ModelCatalogView({ catalog }) {
+  const [selectedVersion, setSelectedVersion] = useState(catalog.active_model_version);
+  const info = catalog.models.find(model => model.model_version === selectedVersion) ?? catalog.models[0];
+  const names = { RandomForestClassifier: 'Random Forest', XGBClassifier: 'XGBoost' };
+  const active = catalog.models.find(model => model.model_version === catalog.active_model_version);
+  return (
+    <>
+      <p className="mt-6 rounded-lg bg-brand-soft p-4 text-sm leading-6 text-brand">
+        <strong>Modèle utilisé pour les simulations : {names[active.model_name] ?? active.model_name}</strong>
+        {' · '}{active.model_version}. Consulter un autre modèle ci-dessous ne change pas les prédictions.
+      </p>
+      <section className="mt-8" aria-labelledby="comparaison-title">
+        <h2 id="comparaison-title" className="text-2xl font-bold">Comparaison des modèles évalués</h2>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Les moyennes de validation croisée et les résultats du test réservé sont distincts.
+          Quelques erreurs changent sensiblement les scores sur ce petit test ; aucun gagnant n’est désigné automatiquement.
+          SVM et régression logistique seront ajoutés lorsque leurs exports seront validés.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[42rem] border-collapse text-left text-sm tabular-nums">
+            <caption className="sr-only">Scores des versions vérifiées, consultation sans changement du modèle actif</caption>
+            <thead><tr className="border-b border-line">
+              {['Modèle / version', 'Exactitude CV', 'Exactitude test', 'Sensibilité test', 'Spécificité test'].map(label => <th key={label} scope="col" className="p-3">{label}</th>)}
+            </tr></thead>
+            <tbody>{catalog.models.map(model => (
+              <tr key={model.model_version} className="border-b border-line">
+                <th scope="row" className="p-3 font-normal">
+                  <span className="block font-bold">{names[model.model_name] ?? model.model_name}</span>
+                  <span className="block text-xs text-muted">{model.model_version}</span>
+                  <span className="mt-1 block text-xs font-bold text-brand">{model.model_version === catalog.active_model_version ? 'Utilisé pour les simulations' : 'Comparaison uniquement'}</span>
+                </th>
+                <td className="p-3">{formatScore(model.evaluation.cv_metrics.accuracy)}</td>
+                <td className="p-3">{formatScore(model.evaluation.test_metrics.accuracy)}</td>
+                <td className="p-3">{formatScore(model.evaluation.test_metrics.recall)}</td>
+                <td className="p-3">{formatScore(model.evaluation.test_metrics.specificity)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+        <label htmlFor="modele-detail" className="mt-6 block text-sm font-bold">Consulter le détail d’un modèle</label>
+        <select id="modele-detail" value={info.model_version} onChange={event => setSelectedVersion(event.target.value)} className="mt-2 min-h-11 w-full rounded-lg border border-line bg-white p-3 sm:max-w-md">
+          {catalog.models.map(model => <option key={model.model_version} value={model.model_version}>{names[model.model_name] ?? model.model_name} · {model.model_version}</option>)}
+        </select>
+      </section>
+      <ModelInfoView info={info} />
+    </>
+  );
+}
+
+export default function PerformancesPage({ onSessionExpired }) {
   const [refresh, setRefresh] = useState(0);
   const [state, setState] = useState({ status: 'loading' });
 
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading' });
-    getModelInfo({ signal: controller.signal }).then(
-      info => { if (!controller.signal.aborted) setState({ status: 'ready', info }); },
-      error => { if (!controller.signal.aborted) setState({ status: 'error', message: error.message }); },
+    getModelCatalog({ signal: controller.signal }).then(
+      catalog => { if (!controller.signal.aborted) setState({ status: 'ready', catalog }); },
+      error => { if (!controller.signal.aborted) {
+        if (error.status === 401 && onSessionExpired) onSessionExpired();
+        else setState({ status: 'error', message: error.message });
+      } },
     );
     return () => controller.abort();
   }, [refresh]);
@@ -162,7 +214,7 @@ export default function PerformancesPage() {
         <p className="text-sm font-bold text-brand">Jeu de données et résultats</p>
         <h1 id="performances-title" className="mt-2 text-3xl font-bold leading-tight sm:text-4xl">Données et performances</h1>
         <p className="mt-4 max-w-3xl leading-7 text-muted">
-          Cette page présente les informations de la release ML réellement chargée par le backend.
+          Cette page présente le modèle actif et les versions évaluées dont les exports ont été vérifiés par le backend.
           Les résultats concernent un jeu de recherche et ne garantissent pas la prédiction d’un cas individuel.
         </p>
       </div>
@@ -177,7 +229,7 @@ export default function PerformancesPage() {
           </button>
         </div>
       )}
-      {state.status === 'ready' && <ModelInfoView info={state.info} />}
+      {state.status === 'ready' && <ModelCatalogView catalog={state.catalog} />}
     </section>
   );
 }
